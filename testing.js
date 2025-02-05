@@ -1,5 +1,10 @@
 import config from '../../config.cjs';
 
+// Initialize PM block state in memory
+if (typeof global.pmBlockEnabled === 'undefined') {
+  global.pmBlockEnabled = config.PMBLOCK || false;
+}
+
 const pmblockCommand = async (m, Matrix) => {
   const botNumber = await Matrix.decodeJid(Matrix.user.id);
   const ownerNumbers = ['923253617422@s.whatsapp.net', '923143200187@s.whatsapp.net'];
@@ -17,10 +22,10 @@ const pmblockCommand = async (m, Matrix) => {
     }
 
     if (text === 'on') {
-      config.PMBLOCK = true;
+      global.pmBlockEnabled = true;
       await Matrix.sendMessage(m.from, { text: 'PM Block feature has been enabled.' }, { quoted: m });
     } else if (text === 'off') {
-      config.PMBLOCK = false;
+      global.pmBlockEnabled = false;
       await Matrix.sendMessage(m.from, { text: 'PM Block feature has been disabled.' }, { quoted: m });
     } else {
       await Matrix.sendMessage(
@@ -34,7 +39,7 @@ const pmblockCommand = async (m, Matrix) => {
   }
 
   // PM Block Functionality
-  if (config.PMBLOCK) {
+  if (global.pmBlockEnabled) {
     if (!global.warningCounts) {
       global.warningCounts = {};
     }
