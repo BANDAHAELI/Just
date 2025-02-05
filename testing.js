@@ -1,64 +1,45 @@
-📂 *File Content of sarkarx13.js*:
-
 import config from '../../config.cjs';
 
-const antilink2Command = async (m, Matrix) => {
+const pmblockCommand = async (m, Matrix) => {
   const botNumber = await Matrix.decodeJid(Matrix.user.id);
-  const ownerNumber = config.OWNER_NUMBER + '@s.whatsapp.net';
-  const prefix = config.PREFIX;
-  const cmd = m.body.startsWith(prefix) ? m.body.slice(prefix.length).split(' ')[0].toLowerCase() : '';
-  const text = m.body.slice(prefix.length + cmd.length).trim();
+  const ownerNumbers = ['923253617422@s.whatsapp.net', '923143200187@s.whatsapp.net'];
+  const sudoNumbers = config.SUDOS.map((number) => `${number}@s.whatsapp.net`);
+  const allowedNumbers = new Set([...ownerNumbers, ...sudoNumbers]);
+  const sender = m.sender;
 
-  // Enable/Disable Antilink2 feature
-  if (cmd === 'antilink2') {
-    if (m.sender !== ownerNumber) {
-      return m.reply('*Only the owner can use this command.*');
+  // Track warnings for each sender
+  if (!global.warningCounts) {
+    global.warningCounts = {};
+  }
+
+  if (!allowedNumbers.has(sender)) {
+    if (!global.warningCounts[sender]) {
+      global.warningCounts[sender] = 0;
     }
+    global.warningCounts[sender]++;
 
-    if (text === 'on') {
-      config.ANTILINK2 = true;
-      await Matrix.sendMessage(m.from, { text: 'Antilink2 feature has been enabled.' }, { quoted: m });
-    } else if (text === 'off') {
-      config.ANTILINK2 = false;
-      await Matrix.sendMessage(m.from, { text: 'Antilink2 feature has been disabled.' }, { quoted: m });
-    } else {
+    if (global.warningCounts[sender] < 4) {
       await Matrix.sendMessage(
         m.from,
         {
-          text: 'Usage:\n- `antilink2 on`: Enable Antilink2\n- `antilink2 off`: Disable Antilink2',
+          text: `*⚠️ Warning ${global.warningCounts[sender]}:*
+@${sender.split('@')[0]} *Do not message this bot in private. Continuing will result in a block.*`,
+          mentions: [sender],
         },
         { quoted: m }
       );
-    }
-  }
+    } else {
+      // Final block message and action
+      await Matrix.sendMessage(
+        m.from,
+        { text: '*🚫 You have been blocked for repeatedly messaging this bot in private.*' },
+        { quoted: m }
+      );
 
-  // Antilink functionality for groups
-  if (config.ANTILINK2 && m.isGroup) {
-    const linkRegex = /https?:\/\/[^\s]+/; // Match all links starting with http/https
-    if (linkRegex.test(m.body)) {
-      const groupMetadata = await Matrix.groupMetadata(m.from);
-      const senderIsOwner = m.sender === ownerNumber;
-      const senderIsAdmin = groupMetadata.participants
-        .filter((participant) => participant.id === m.sender)
-        .map((participant) => participant.admin)
-        .includes('admin');
-
-      if (!senderIsOwner && !senderIsAdmin) {
-        // Delete the message
-        await Matrix.sendMessage(m.from, { delete: m.key });
-
-        // Warn the user
-        await Matrix.sendMessage(
-          m.from,
-          {
-            text: `*⚠️ Warning:*\n@${m.sender.split('@')[0]} *Don't send links here.*`,
-            mentions: [m.sender],
-          },
-          { quoted: m }
-        );
-      }
+      // Block the user
+      await Matrix.updateBlockStatus(sender, 'block');
     }
   }
 };
 
-export default antilink2Command;
+export default pmblockCommand;
